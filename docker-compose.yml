@@ -1,39 +1,51 @@
-# Ironhack note - This file is for running in docker compose with prebuilt images
-# Use these if you're stuck, or if you want to start slowly migrating from external images into your own.
-
 services:
   vote:
-    image: pokfinner/vote:latest
- #  build: ./vote
+    image: lananh03/vote:latest
     depends_on:
       redis:
-        condition: service_healthy 
+        condition: service_healthy
     ports:
       - "8080:80"
+    environment:
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
     networks:
-      - back-tier
-
+      - frontend
+      - backend
+  
   result:
-    image: pokfinner/result:latest
- #  build: ./result
+    image: lananh03/result:latest
     depends_on:
       db:
-        condition: service_healthy 
+        condition: service_healthy
     ports:
       - "8081:80"
+    environment:
+      - PORT=${PORT}
+      - PG_HOST=${PG_HOST}
+      - PG_PORT=${PG_PORT}
+      - PG_USER=${PG_USER}
+      - PG_PASSWORD=${PG_PASSWORD}
+      - PG_DATABASE=${PG_DATABASE}
     networks:
-      - back-tier
+      - frontend
+      - backend
 
   worker:
- #  build: ./worker
-    image: pokfinner/worker:latest
+    image: lananh03/worker:latest
     depends_on:
       redis:
-        condition: service_healthy 
+        condition: service_healthy
       db:
-        condition: service_healthy 
+        condition: service_healthy
+    environment:
+      - DB_HOST=${PG_HOST}
+      - REDIS_HOST=${REDIS_HOST}
+      - DB_USER=${PG_USER}
+      - DB_PASSWORD=${PG_PASSWORD}
+      - DB_DATABASE=${PG_DATABASE}
     networks:
-      - back-tier
+      - backend
 
   redis:
     image: redis:alpine
@@ -41,9 +53,9 @@ services:
       - "./healthchecks:/healthchecks"
     healthcheck:
       test: /healthchecks/redis.sh
-      interval: "5s"
+      interval: 5s
     networks:
-      - back-tier
+      - backend
 
   db:
     image: postgres:15-alpine
@@ -57,10 +69,11 @@ services:
       test: /healthchecks/postgres.sh
       interval: "5s"
     networks:
-      - back-tier
+      - backend
 
 volumes:
   db-data:
 
 networks:
-  back-tier:
+  frontend:
+  backend:
