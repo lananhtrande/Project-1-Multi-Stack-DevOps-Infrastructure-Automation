@@ -1,5 +1,5 @@
-# Terraform
-.terraform/
+# Ignore Terraform everywhere
+**/.terraform/*
 *.tfstate
 *.tfstate.*
 .terraform.lock.hcl
