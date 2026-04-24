@@ -5,7 +5,7 @@ variable "key_pair_name" {
 }
 
 variable "student_name" {
-  type        = string
+  type = string
 }
 
 variable "aws_region" {
