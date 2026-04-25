@@ -8,7 +8,7 @@ services:
     image: lananh03/worker:latest
     environment:
       - DB_HOST= {{ db_ip }}
-      - REDIS_HOST=localhost
+      - REDIS_HOST={{ backend_ip }}
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_DATABASE=postgres
