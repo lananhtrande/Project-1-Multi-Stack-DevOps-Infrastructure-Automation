@@ -1,0 +1,8 @@
+[frontend]
+frontend-instance
+
+[backend]
+backend-instance backend_ip=10.0.2.68
+
+[database]
+db-instance db_ip=10.0.2.106

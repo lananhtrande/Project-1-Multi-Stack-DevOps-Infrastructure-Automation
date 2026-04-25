@@ -1,0 +1,22 @@
+- name: Deploy redis and worker on backend
+  hosts: backend
+  become: yes
+
+  vars:
+    db_ip: "{{ hostvars['db-instance']['db_ip'] }}"
+
+  tasks:
+    - name: Create app directory
+      file:
+        path: /home/ubuntu/app
+        state: directory
+
+    - name: Copy docker-compose
+      template:
+        src: templates/docker-compose-backend.yml.j2
+        dest: /home/ubuntu/app/docker-compose.yml
+
+    - name: Run docker-compose
+      command: docker-compose up -d
+      args:
+        chdir: /home/ubuntu/app

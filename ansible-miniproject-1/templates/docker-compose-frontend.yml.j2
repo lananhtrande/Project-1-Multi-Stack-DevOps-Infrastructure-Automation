@@ -1,0 +1,20 @@
+services:
+  vote:
+    image: lananh03/vote:latest
+    environment:
+      - REDIS_HOST={{ backend_ip }}
+      - REDIS_PORT=6379
+    ports:
+      - 8080:80
+
+  result:
+    image: lananh03/result:latest
+    environment:
+      - PORT=80
+      - PG_HOST={{ db_ip }}
+      - PG_PORT=5432
+      - PG_USER=postgres
+      - PG_PASSWORD=postgres
+      - PG_DATABASE=postgres
+    ports:
+      - 8081:80

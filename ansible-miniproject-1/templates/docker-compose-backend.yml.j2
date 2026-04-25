@@ -1,0 +1,15 @@
+services:
+  redis:
+    image: redis:alpine
+    ports:
+      - 6379:6379
+
+  worker:
+    image: lananh03/worker:latest
+    environment:
+      - DB_HOST= {{ db_ip }}
+      - REDIS_HOST=localhost
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_DATABASE=postgres
+        
