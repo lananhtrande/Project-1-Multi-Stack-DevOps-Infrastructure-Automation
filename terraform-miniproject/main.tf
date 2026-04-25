@@ -92,6 +92,32 @@ resource "aws_route_table_association" "private_rt_assoc" {
   route_table_id = aws_route_table.private_rt.id
 }
 
+resource "aws_security_group" "bastion_sg" {
+  name        = "bastion-sg-${var.student_name}"
+  description = "Allow SSH inbound traffic"
+  vpc_id      = aws_vpc.my_vpc.id
+
+  ingress {
+    description = "Allow SSH to bastion"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["92.117.112.40/32"]
+  }
+
+  egress {
+    description = "Allow all outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "bastion-sg-${var.student_name}"
+  }
+}
+
 resource "aws_security_group" "frontend_sg" {
   name        = "frontend-sg-${var.student_name}"
   description = "Allow SSH and HTTP inbound traffic"
@@ -110,7 +136,7 @@ resource "aws_security_group" "frontend_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["92.117.115.190/32"]
+    security_groups = [aws_security_group.bastion_sg.id]
   }
 
   ingress {
@@ -152,7 +178,7 @@ resource "aws_security_group" "backend_sg" {
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
-    security_groups = [aws_security_group.frontend_sg.id]
+    security_groups = [aws_security_group.bastion_sg.id]
   }
 
   egress {
@@ -186,7 +212,7 @@ resource "aws_security_group" "db_sg" {
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
-    security_groups = [aws_security_group.frontend_sg.id]
+    security_groups = [aws_security_group.bastion_sg.id]
   }
 
   ingress {
@@ -222,6 +248,18 @@ data "aws_ami" "ubuntu" {
   filter {
     name   = "virtualization-type"
     values = ["hvm"]
+  }
+}
+
+resource "aws_instance" "bastion" {
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.public_subnet_id
+  vpc_security_group_ids = [aws_security_group.bastion_sg.id]
+  key_name               = var.key_pair_name
+
+  tags = {
+    Name = "bastion-${var.student_name}"
   }
 }
 
