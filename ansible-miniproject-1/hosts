@@ -1,11 +1,14 @@
 [bastion]
-bastion-instance
+bastion
 
 [frontend]
-frontend-instance
+frontend-1
+frontend-2
 
 [backend]
-backend-instance backend_ip=10.0.2.56
+backend-1
+backend-2
 
 [database]
-db-instance db_ip=10.0.2.176
+database-1
+database-2
