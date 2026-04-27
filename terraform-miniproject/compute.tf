@@ -121,6 +121,13 @@ resource "aws_security_group" "db_sg" {
   vpc_id      = aws_vpc.my_vpc.id
 
   ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    self            = true
+  }
+
+  ingress {
     description     = "Allow accessing postgres from frontend"
     from_port       = 5432
     to_port         = 5432
