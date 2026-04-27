@@ -46,7 +46,7 @@ resource "aws_lb_target_group" "vote_tg" {
   vpc_id   = aws_vpc.my_vpc.id
 
   health_check {
-    path = "/"
+    path = "/vote"
     port = "8080"
   }
 }
@@ -58,7 +58,7 @@ resource "aws_lb_target_group" "result_tg" {
   vpc_id   = aws_vpc.my_vpc.id
 
   health_check {
-    path = "/"
+    path = "/result"
     port = "8081"
   }
 }
