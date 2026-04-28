@@ -1,0 +1,35 @@
+all:
+
+  children:
+
+    bastion:
+      hosts:
+        bastion:
+
+    frontend:
+      hosts:
+        frontend-1:
+        frontend-2:
+
+    backend:
+      hosts:
+        backend-1:
+          host_ip: 10.0.10.207
+        backend-2:
+          host_ip: 10.0.11.136
+
+    pg_primary:
+      hosts:
+        postgres-1:
+          host_ip: 10.0.10.90
+
+    pg_replica:
+      hosts:
+        postgres-2:
+          host_ip: 10.0.11.117
+
+    pg:
+      hosts:
+       postgres-1:
+       postgres-2:
+       

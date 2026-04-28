@@ -1,0 +1,42 @@
+# ============================================================
+# PLAY 3 — Configure the REPLICA (slave)
+#   "Hey slave, clone the master and start following it"
+# ============================================================
+- name: Configure REPLICA
+  hosts: pg_replica
+  become: true
+
+  vars:
+    primary_ip: "{{ hostvars[groups['pg_primary'][0]]['host_ip'] }}"
+
+  tasks:
+    # --- 1. Stop postgres so we can replace its data dir ---
+    - name: Stop PostgreSQL
+      systemd:
+        name: postgresql
+        state: stopped
+
+    # --- 2. Wipe the existing data directory ---
+    - name: Remove existing data directory
+      file:
+        path: "{{ pg_data_dir }}"
+        state: absent
+
+    # --- 3. Clone everything from the master ---
+    - name: pg_basebackup from primary
+      become_user: postgres
+      environment:
+        PGPASSWORD: "{{ replication_password }}"
+      command: >
+        pg_basebackup
+        -h {{ primary_ip }}
+        -p {{ pg_port }}
+        -U {{ replication_user }}
+        -D {{ pg_data_dir }}
+        -Fp -Xs -P -R
+
+    # --- 4. Start postgres — it reads standby.signal and enters replica mode ---
+    - name: Start PostgreSQL in replica mode
+      systemd:
+        name: postgresql
+        state: started

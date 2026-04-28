@@ -3,7 +3,10 @@
   become: yes
 
   vars:
-    db_ip: "{{ hostvars['db-instance']['db_ip'] }}"
+    # backend-az1 → postgres-az1, backend-az2 → postgres-az2
+    my_az: "{{ inventory_hostname.split('-')[1] }}"
+    my_db_host: "{{ hostvars[groups['pg_primary'][0]]['host_ip'] }}"
+    my_redis_host: "{{ hostvars['backend-' + my_az]['host_ip'] }}"
 
   tasks:
     - name: Create app directory
@@ -20,3 +23,15 @@
       command: docker-compose up -d
       args:
         chdir: /home/ubuntu/app
+
+    - name: Show which DB this backend connects to
+      debug:
+        msg: "{{ inventory_hostname }} ({{ host_ip }}) → postgres-{{ my_az }} ({{ my_db_host }})"
+
+    - name: Write DB connection config
+      copy:
+        dest: /home/ubuntu/app/db.conf
+        content: |
+          DB_HOST={{ my_db_host }}
+          DB_PORT=5432
+          DB_NAME=myapp-voting

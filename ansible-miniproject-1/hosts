@@ -9,6 +9,8 @@ frontend-2
 backend-1
 backend-2
 
-[database]
+[pg_primary]
 database-1
+
+[pg_replica]
 database-2

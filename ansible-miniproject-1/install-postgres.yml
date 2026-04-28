@@ -1,0 +1,21 @@
+# ============================================================
+# PLAY 1 — Install PostgreSQL on ALL nodes
+# ============================================================
+- name: Common PostgreSQL setup
+  hosts: pg_primary, pg_replica
+  become: true
+  tasks:
+    - name: Install PostgreSQL
+      apt:
+        name:
+          - "postgresql-{{ pg_version }}"
+          - "postgresql-client-{{ pg_version }}"
+          - python3-psycopg2
+        state: present
+        update_cache: yes
+
+    - name: Ensure PostgreSQL is running
+      systemd:
+        name: postgresql
+        state: started
+        enabled: yes

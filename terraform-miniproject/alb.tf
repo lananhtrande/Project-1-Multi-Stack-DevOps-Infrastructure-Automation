@@ -4,16 +4,8 @@ resource "aws_security_group" "alb_sg" {
 
   ingress {
     description = "Accessing vote from anywhere"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Accessing result from anywhere"
-    from_port   = 8081
-    to_port     = 8081
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -46,8 +38,7 @@ resource "aws_lb_target_group" "vote_tg" {
   vpc_id   = aws_vpc.my_vpc.id
 
   health_check {
-    path = "/vote"
-    port = "8080"
+    path = "/"
   }
 }
 
@@ -58,8 +49,7 @@ resource "aws_lb_target_group" "result_tg" {
   vpc_id   = aws_vpc.my_vpc.id
 
   health_check {
-    path = "/result"
-    port = "8081"
+    path = "/"
   }
 }
 
@@ -83,13 +73,8 @@ resource "aws_lb_listener" "http" {
   protocol          = "HTTP"
 
   default_action {
-    type = "fixed-response"
-
-    fixed_response {
-      content_type = "text/plain"
-      message_body = "Not Found"
-      status_code  = "404"
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.vote_tg.arn
   }
 }
 

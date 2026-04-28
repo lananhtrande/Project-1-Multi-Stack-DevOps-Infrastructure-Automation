@@ -3,8 +3,9 @@
   become: yes
 
   vars:
-    db_ip: "{{ hostvars['db-instance']['db_ip'] }}"
-    backend_ip: "{{ hostvars['backend-instance']['backend_ip'] }}"
+    my_az: "{{ inventory_hostname.split('-')[1] }}"
+    my_db_host: "{{ hostvars['postgres-' + my_az]['host_ip'] }}"
+    my_redis_host: "{{ hostvars['backend-' + my_az]['host_ip'] }}"
 
   tasks:
     - name: Create app directory
