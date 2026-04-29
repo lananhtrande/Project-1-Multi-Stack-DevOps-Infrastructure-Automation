@@ -35,7 +35,24 @@
         -D {{ pg_data_dir }}
         -Fp -Xs -P -R
 
-    # --- 4. Start postgres — it reads standby.signal and enters replica mode ---
+    # --- 4. Ensure replica listens externally ---
+    - name: Configure replica postgresql.conf
+      blockinfile:
+        path: "{{ pg_conf_dir }}/postgresql.conf"
+        marker: "# {mark} ANSIBLE MANAGED — REPLICA NETWORK"
+        block: |
+          listen_addresses = '*'
+      notify: restart postgresql
+
+    # --- 5. Allow internal VPC access ---
+    - name: Configure replica pg_hba.conf
+      lineinfile:
+        path: "{{ pg_conf_dir }}/pg_hba.conf"
+        line: "host all all 10.0.0.0/16 md5"
+        state: present
+      notify: restart postgresql
+
+    # --- 6. Start postgres — it reads standby.signal and enters replica mode ---
     - name: Start PostgreSQL in replica mode
       systemd:
         name: postgresql
