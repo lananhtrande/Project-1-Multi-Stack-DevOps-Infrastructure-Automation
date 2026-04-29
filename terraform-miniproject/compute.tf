@@ -26,6 +26,14 @@ resource "aws_security_group" "bastion_sg" {
     cidr_blocks = ["92.117.174.19/32"]
   }
 
+  ingress {
+    description = "This is for health check"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     description = "Allow all outbound traffic"
     from_port   = 0
@@ -133,6 +141,14 @@ resource "aws_security_group" "db_sg" {
     to_port         = 5432
     protocol        = "tcp"
     security_groups = [aws_security_group.frontend_sg.id]
+  }
+
+  ingress {
+    description     = "Allow accessing postgres from bastion for health check"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion_sg.id]
   }
 
   ingress {
