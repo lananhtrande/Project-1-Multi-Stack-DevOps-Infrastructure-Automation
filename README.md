@@ -527,8 +527,12 @@ Using **Patroni** would provide:
 
 # 👨‍💻 Author(s)
 
+**Diogo Barros**
+- Core project
+
 **Lan Anh Tran**
 
+- Multi-Stack DevOps Infrastructure Automation (AWS, Terraform, Ansible, Docker)
 - LinkedIn: https://www.linkedin.com/in/tran-lan-anh-12019681/
 - GitHub: https://github.com/lananhtrande
 
