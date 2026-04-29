@@ -21,8 +21,6 @@ This repository contains **two deployment approaches**:
 
 ## 🏗️ Architecture Diagram
 
-> 📌 Export your infrastructure diagram as `docs/architecture.png` using Eraser.io, Excalidraw, or another diagramming tool.
-
 ![Architecture Diagram](docs/ha-diagram.png)
 
 
