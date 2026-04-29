@@ -6,6 +6,7 @@ services:
 
   worker:
     image: lananh03/worker:latest
+    restart: unless-stopped
     environment:
       - DB_HOST={{ my_db_host }}
       - REDIS_HOST={{ my_redis_host }}

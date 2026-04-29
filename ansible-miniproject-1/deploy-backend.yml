@@ -5,7 +5,7 @@
   vars:
     # backend-az1 → postgres-az1, backend-az2 → postgres-az2
     my_az: "{{ inventory_hostname.split('-')[1] }}"
-    my_db_host: "{{ hostvars[groups['pg_primary'][0]]['host_ip'] }}"
+    my_db_host: "db.internal.local"
     my_redis_host: "{{ hostvars['backend-' + my_az]['host_ip'] }}"
 
   tasks:

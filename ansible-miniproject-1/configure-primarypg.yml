@@ -21,6 +21,14 @@
         state: reloaded
 
   tasks:
+    # --- 0. Create postgres user and password ---
+    - name: Set postgres password
+      become_user: postgres
+      postgresql_user:
+        name: postgres
+        password: postgres
+        state: present
+        
     # --- 1. Create a replication user so the slave can authenticate ---
     - name: Create replication user
       become_user: postgres
@@ -46,7 +54,7 @@
     - name: Allow replica in pg_hba.conf
       lineinfile:
         path: "{{ pg_conf_dir }}/pg_hba.conf"
-        line: "host all all 10.0.0.0/16 md5"
+        line: "host replication {{ replication_user }} 10.0.0.0/16 md5"
         state: present
       notify: reload postgresql
 
