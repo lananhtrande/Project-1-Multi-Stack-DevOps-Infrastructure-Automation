@@ -1,155 +1,573 @@
-<!-- © 2024 | Ironhack -->
+# 🚀 Multi-Stack DevOps Infrastructure Automation
+**Production-style AWS infrastructure with Terraform, Ansible, Docker, and PostgreSQL high availability**
 
 ---
 
-# Multi-Stack Voting Application
+## 🌿 Branch Strategy
 
-**Welcome to your DevOps practice project!** This repository hosts a multi-stack voting application composed of several services, each implemented in a different language and technology stack. The goal is to help you gain experience with containerization, orchestration, and running a distributed set of services—both individually and as part of a unified system.
+This repository contains **two deployment approaches**:
 
-This application, while simple, uses multiple components commonly found in modern distributed architectures, giving you hands-on practice in connecting services, handling containers, and working with basic infrastructure automation.
+- **`main` branch** → Single-AZ deployment (baseline architecture for standard application deployment)
+- **`feature/ha-design` branch** → Full **High Availability (HA)** deployment:
+  - Multi-AZ architecture across 2 Availability Zones
+  - Application Load Balancer (ALB)
+  - Route 53 private hosted zone failover
+  - PostgreSQL primary-replica streaming replication
+  - Bastion-hosted health monitoring
 
-## Application Overview
-
-The voting application includes:
-
-- **Vote (Python)**: A Python Flask-based web application where users can vote between two options.
-- **Redis (in-memory queue)**: Collects incoming votes and temporarily stores them.
-- **Worker (.NET)**: A .NET 7.0-based service that consumes votes from Redis and persists them into a database.
-- **Postgres (Database)**: Stores votes for long-term persistence.
-- **Result (Node.js)**: A Node.js/Express web application that displays the vote counts in real time.
-
-### Why This Setup?
-
-The goal is to introduce you to a variety of languages, tools, and frameworks in one place. This is **not** a perfect production design. Instead, it’s intentionally diverse to help you:
-
-- Work with multiple runtimes and languages (Python, Node.js, .NET).
-- Interact with services like Redis and Postgres.
-- Containerize applications using Docker.
-- Use Docker Compose to orchestrate and manage multiple services together.
-
-By dealing with this “messy” environment, you’ll build real-world problem-solving skills. After this project, you should feel more confident tackling more complex deployments and troubleshooting issues in containerized, multi-service setups.
+> ⚠️ For enterprise-grade deployment, use the **`feature/ha-design`** branch.
 
 ---
 
-## How to Run Each Component
+## 🏗️ Architecture Diagram
 
-### Running the Vote Service (Python) Locally (No Docker)
+> 📌 Export your infrastructure diagram as `docs/architecture.png` using Eraser.io, Excalidraw, or another diagramming tool.
 
-1. Ensure you have Python 3.10+ installed.
-2. Navigate to the `vote` directory:
-   ```bash
-   cd vote
-   pip install -r requirements.txt
-   python app.py
-   ```
-   Access the vote interface at [http://localhost:5000](http://localhost:5000).
+![Architecture Diagram](docs/ha-diagram.png)
 
-### Running Redis Locally (No Docker)
 
-1. Install Redis on your system ([https://redis.io/docs/getting-started/](https://redis.io/docs/getting-started/)).
-2. Start Redis:
-   ```bash
-   redis-server
-   ```
-   Redis will be available at `localhost:6379`.
+# Architecture Summary
 
-### Running the Worker (C#/.NET) Locally (No Docker)
+## Core Components
 
-1. Ensure .NET 7.0 SDK is installed.
-2. Navigate to `worker`:
-   ```bash
-   cd worker
-   dotnet restore
-   dotnet run
-   ```
-   The worker will attempt to connect to Redis and Postgres when available.
+### Public Layer
 
-### Running Postgres Locally (No Docker)
+* **Bastion Host**
 
-1. Install Postgres from [https://www.postgresql.org/download/](https://www.postgresql.org/download/).
-2. Start Postgres, note the username and password (default `postgres`/`postgres`):
-   ```bash
-   # On many systems, Postgres runs as a service once installed.
-   ```
-   Postgres will be available at `localhost:5432`.
+  * Secure SSH entry point
+  * Centralized Ansible controller
+  * Route 53 health-check host
 
-### Running the Result Service (Node.js) Locally (No Docker)
+* **Application Load Balancer (ALB)**
 
-1. Ensure Node.js 18+ is installed.
-2. Navigate to `result`:
-   ```bash
-   cd result
-   npm install
-   node server.js
-   ```
-   Access the results interface at [http://localhost:4000](http://localhost:4000).
+  * Routes `/vote` traffic to frontend vote service
+  * Routes `/result` traffic to frontend result service
+  * Distributes traffic across two Availability Zones
 
-**Note:** To get the entire system working end-to-end (i.e., votes flowing through Redis, processed by the worker, stored in Postgres, and displayed by the result app), you’ll need to ensure each component is running and that connection strings or environment variables point to the correct services.
+* **Internet Gateway**
+
+  * Public internet access for bastion and ALB
 
 ---
 
-## Running the Entire Stack in Docker
+### Private Layer
 
-### Building and Running Individual Services
+* **2 Frontend EC2 Instances**
 
-You can build each service with Docker and run them individually:
+  * One per AZ
+  * Dockerized vote + result applications
 
-- **Vote (Python)**:
-  ```bash
-  docker build -t myorg/vote:latest ./vote
-  docker run --name vote -p 8080:80 myorg/vote:latest
-  ```
-  Visit [http://localhost:8080](http://localhost:8080).
+* **2 Backend EC2 Instances**
 
-- **Redis** (official image, no build needed):
-  ```bash
-  docker run --name redis -p 6379:6379 redis:alpine
-  ```
+  * One per AZ
+  * Redis + worker services
 
-- **Worker (.NET)**:
-  ```bash
-  docker build -t myorg/worker:latest ./worker
-  docker run --name worker myorg/worker:latest
-  ```
-  
-- **Postgres**:
-  ```bash
-  docker run --name db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:15-alpine
-  ```
+* **2 PostgreSQL Database Nodes**
 
-- **Result (Node.js)**:
-  ```bash
-  docker build -t myorg/result:latest ./result
-  docker run --name result -p 8081:80 myorg/result:latest
-  ```
-  Visit [http://localhost:8081](http://localhost:8081).
+  * Primary database
+  * Replica database with streaming replication
 
-### Using Docker Compose
+* **2 NAT Gateways**
 
-The easiest way to run the entire stack is via Docker Compose. From the project root directory:
+  * Internet access for private instances
+  * Package/image downloads
+
+---
+
+# High Availability Features
+
+## PostgreSQL Replication
+
+* Primary handles writes
+* Replica handles failover/read scenarios
+* Streaming replication configured with `pg_basebackup`
+
+## Route 53 Failover
+
+* Private hosted zone DNS endpoint (`db.internal.local`)
+* Primary DNS record → Primary DB
+* Secondary DNS record → Replica DB
+* Bastion-hosted Python health check validates primary availability
+
+## Application Resilience
+
+* Backend services connect via DNS endpoint
+* Failover possible without backend reconfiguration
+
+---
+
+## 🧰 Tech Stack
+
+![Terraform](https://img.shields.io/badge/Terraform-1.x-7B42BC?logo=terraform)
+![AWS](https://img.shields.io/badge/AWS-EC2%2FVPC%2FALB-orange?logo=amazonaws)
+![Ansible](https://img.shields.io/badge/Ansible-Automation-red?logo=ansible)
+![Docker](https://img.shields.io/badge/Docker-Containers-blue?logo=docker)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14-blue?logo=postgresql)
+![Redis](https://img.shields.io/badge/Redis-Queue-red?logo=redis)
+![Route53](https://img.shields.io/badge/Route53-DNS-green?logo=amazonaws)
+![Linux](https://img.shields.io/badge/Linux-Ubuntu-black?logo=linux)
+
+---
+
+## 📦 Prerequisites
+
+Ensure the following tools are installed before deployment:
+
+### Required Software
+
+- Terraform >= 1.x
+- Ansible
+- Docker
+- Docker Compose
+- AWS CLI
+- Python 3
+- SSH Key Pair
+- Git
+
+### AWS Requirements
+
+- AWS Account
+- IAM credentials configured (`aws configure`)
+- EC2 Key Pair
+- Sufficient permissions for:
+  - VPC
+  - EC2
+  - Route53
+  - S3
+  - DynamoDB
+  - ALB
+  - NAT Gateway
+
+---
+
+## 💻 Run Locally
+
+For local containerized deployment:
 
 ```bash
-docker compose up
+docker-compose up --build
 ```
 
-This will:
+## Local Access
 
-- Build and run the vote, worker, and result services.
-- Run Redis and Postgres from their official images.
-- Set up networks, volumes, and environment variables so all services can communicate.
-
-Visit [http://localhost:8080](http://localhost:8080) to vote and [http://localhost:8081](http://localhost:8081) to see results.
+- Vote App → `http://localhost:8080`
+- Result App → `http://localhost:8081`
 
 ---
 
-## Notes on Platforms (arm64 vs amd64)
+# ☁️ Deploy to AWS (Zero-Context Step-by-Step)
 
-If you’re on an arm64 machine (e.g., Apple Silicon M1/M2) and encounter issues with images or dependencies that assume amd64, you can use Docker `buildx`:
+## Step 1 — Clone Repository
 
 ```bash
-docker buildx build --platform linux/amd64 -t myorg/worker:latest ./worker
+git clone https://github.com/lananhtrande/Project-1-Multi-Stack-DevOps-Infrastructure-Automation.git
+cd Project-1-Multi-Stack-DevOps-Infrastructure-Automation
+git checkout feature/ha-design
 ```
 
-This ensures the image is built for the desired platform.
+---
+
+## Step 2 — Bootstrap Terraform Remote Backend
+
+```bash
+cd terraform-miniproject/terraform-bootstrap
+terraform init
+terraform apply
+```
+
+### This provisions:
+
+- S3 bucket for Terraform remote state
+- DynamoDB table for state locking
 
 ---
+
+## Step 3 — Deploy Core Infrastructure
+
+```bash
+cd terraform-miniproject
+terraform init
+terraform apply
+```
+
+### Infrastructure Created
+
+- VPC
+- Public subnets
+- Private subnets
+- Internet Gateway
+- NAT Gateways
+- Bastion host
+- Frontend EC2 nodes
+- Backend EC2 nodes
+- PostgreSQL primary node
+- PostgreSQL replica node
+- Security groups
+- Application Load Balancer (HA branch)
+- Route53 private hosted zone (This is done via AWS console)
+
+---
+
+## Step 4 — Update Security Groups
+
+### Bastion Host Security Group
+
+⚠️ **IMPORTANT:**
+
+Modify inbound SSH rule:
+
+- Replace placeholder IP with **your PC’s public IP address**
+- OR use `0.0.0.0/0` for open access (not recommended)
+
+### Example:
+
+```text
+Port: 22
+Protocol: TCP
+Source: YOUR_PUBLIC_IP/32
+```
+
+---
+
+## Step 5 — Configure Ansible Inventory
+
+Populate inventory with:
+
+- Backend private IPs
+- PostgreSQL node IPs
+
+Before running Ansible playbooks, configure your local SSH client to securely access private EC2 instances through the Bastion host using `ProxyJump`.
+
+### Edit SSH Configuration
+
+Open your SSH config file:
+
+```bash
+nano ~/.ssh/config
+```
+
+---
+
+### Add Configuration
+
+```ssh
+# Configure bastion instance
+Host bastion
+    HostName <bastion-public-ip>
+    User ubuntu
+    IdentityFile ~/.ssh/<key-pair-name>.pem
+
+# Frontend Node AZ1
+Host frontend-1
+    HostName <frontend-private-ip-az1>
+    User ubuntu
+    IdentityFile ~/.ssh/<key-pair-name>.pem
+    ProxyJump bastion
+
+# Frontend Node AZ2
+Host frontend-2
+    HostName <frontend-private-ip-az2>
+    User ubuntu
+    IdentityFile ~/.ssh/<key-pair-name>.pem
+    ProxyJump bastion
+
+# Backend Node AZ1
+Host backend-1
+    HostName <backend-private-ip-az1>
+    User ubuntu
+    IdentityFile ~/.ssh/<key-pair-name>.pem
+    ProxyJump bastion
+
+# Backend Node AZ2
+Host backend-2
+    HostName <backend-private-ip-az2>
+    User ubuntu
+    IdentityFile ~/.ssh/<key-pair-name>.pem
+    ProxyJump bastion
+
+# PostgreSQL Primary
+Host postgres-primary
+    HostName <postgres-primary-private-ip>
+    User ubuntu
+    IdentityFile ~/.ssh/<key-pair-name>.pem
+    ProxyJump bastion
+
+# PostgreSQL Replica
+Host postgres-replica
+    HostName <postgres-replica-private-ip>
+    User ubuntu
+    IdentityFile ~/.ssh/<key-pair-name>.pem
+    ProxyJump bastion
+```
+
+---
+
+### Secure SSH Config Permissions
+
+```bash
+chmod 600 ~/.ssh/config
+chmod 400 ~/.ssh/<key-pair-name>.pem
+```
+
+---
+
+### Test SSH Connectivity
+
+```bash
+ssh bastion
+ssh frontend-1
+ssh backend-1
+ssh postgres-primary
+```
+
+---
+
+## Step 6 — Install Base Dependencies
+
+```bash
+ansible-playbook install-docker.yml
+```
+
+---
+
+## Step 7 — Deploy PostgreSQL High Availability
+
+Before deploying PostgreSQL, define group_vars/pg.yml
+
+```bash
+pg_version: "14"
+pg_data_dir: "/var/lib/postgresql/14/main"
+pg_conf_dir: "/etc/postgresql/14/main"
+replication_user: "replicator"
+replication_password: "<replication password>"
+pg_port: 5432
+ansible_user: ubuntu
+```
+
+```bash
+ansible-playbook -i inventory.yml install-postgres.yml
+ansible-playbook -i inventory.yml configure-primarypg.yml
+ansible-playbook -i inventory.yml configure-replicapg.yml
+ansible-playbook -i inventory.yml verify-replicapg.yml
+```
+
+### Configures:
+
+- PostgreSQL primary
+- Replication user
+- `postgresql.conf`
+- `pg_hba.conf`
+- Streaming replication
+- Replica bootstrap via `pg_basebackup`
+
+---
+
+## Step 8 — Deploy Backend Services
+
+```bash
+ansible-playbook -i inventory.yml deploy-backend.yml
+```
+
+### Deploys:
+
+- Redis container
+- Worker container
+- Dynamic DB DNS endpoint integration
+
+---
+
+## Step 9 — Deploy Frontend Services
+
+```bash
+ansible-playbook -i inventory.yml deploy-frontend.yml
+```
+
+### Deploys:
+
+- Vote container
+- Result container
+
+---
+
+## Step 10 — Start Route53 Health Check
+
+Run on Bastion (copy health.py to bastion):
+
+```bash
+ssh bastion
+sudo python3 health.py
+```
+
+### Health Check Logic
+
+- Validates PostgreSQL primary on port 5432
+- HTTP 200 = healthy
+- HTTP 500 = unhealthy
+
+---
+
+# ⚙️ Environment Variables
+
+(Example in .env.example)
+
+---
+
+# 🔄 Operational Flow
+
+## Normal Workflow
+
+1. User submits vote through Vote app  
+2. Vote stored in Redis queue  
+3. Worker consumes vote  
+4. Worker writes to PostgreSQL primary  
+5. Result app queries PostgreSQL  
+6. ALB distributes frontend traffic  
+
+---
+
+## Failure Workflow
+
+1. PostgreSQL primary becomes unavailable  
+2. Bastion health check detects failure  
+3. Route53 failover triggers  
+4. DNS points `db.internal.local` to replica  
+5. Replica promoted manually  
+6. Services reconnect using DNS  
+
+---
+
+# 🔐 Security Design
+
+## Bastion Host
+
+- SSH from trusted IP only
+- HTTP from anywhere (for health check)
+- Centralized administration
+
+## Frontend Tier
+
+- HTTP/HTTPS from ALB only
+- SSH only from Bastion
+
+## Backend Tier
+
+- Redis from Frontend
+- SSH only from Bastion
+
+## Database Tier
+
+- PostgreSQL only from application security groups
+- SSH only from Bastion
+
+---
+
+# ⚠️ Known Issues / Limitations
+
+## ❗ Manual Promotion
+
+When the primary database fails:
+
+- Replica requires **manual promotion**
+- No automated failover orchestration
+- Recovery process increases operational risk
+
+---
+
+## 🔧 Improvement Needed
+
+Implement:
+
+- Patroni
+- repmgr
+- Automated leader election
+- Automatic failover
+- Self-healing replication
+
+---
+
+## 🚀 Recommended Future State
+
+Using **Patroni** would provide:
+
+- Automatic failover
+- Automatic replica promotion
+- Distributed consensus
+- Reduced downtime
+- Improved resilience
+
+---
+
+# 🚀 Future Improvements
+
+- Patroni automated failover
+- PgBouncer / HAProxy
+- Prometheus monitoring
+- Grafana dashboards
+- CloudWatch alerts
+- CI/CD integration
+- Kubernetes migration
+- Auto-scaling
+- Automated failback
+- Blue/Green deployment strategy
+
+---
+
+# 💼 Skills Demonstrated
+
+- AWS Cloud Architecture
+- Infrastructure as Code (Terraform)
+- Configuration Management (Ansible)
+- Dockerized Deployments
+- PostgreSQL Replication
+- High Availability Engineering
+- Disaster Recovery Design
+- DNS Failover Automation
+- Linux Administration
+- DevOps Best Practices
+
+---
+
+# 👨‍💻 Author(s)
+
+**Lan Anh Tran**
+
+- LinkedIn: https://www.linkedin.com/in/tran-lan-anh-12019681/
+- GitHub: https://github.com/lananhtrande
+
+---
+
+# 🏁 Conclusion
+
+This project serves as a practical example of **enterprise-grade DevOps engineering**, integrating:
+
+- Cloud networking
+- Secure infrastructure
+- Infrastructure automation
+- Configuration management
+- Container orchestration
+- Database replication
+- DNS failover
+- Operational resilience
+
+## Final Outcome
+
+A scalable, secure, automated, production-style deployment platform suitable for:
+
+- Portfolio demonstration
+- DevOps interviews
+- Infrastructure engineering showcases
+- Cloud modernization projects
+
+---
+
+# ⭐ Repository Highlights
+
+✔ Single-AZ deployment option  
+✔ Full HA Multi-AZ architecture  
+✔ Bastion-managed infrastructure  
+✔ PostgreSQL replication  
+✔ Route53 failover  
+✔ Dockerized applications  
+✔ Modular Terraform structure  
+✔ Automated Ansible deployment  
+✔ Production-focused design principles  
